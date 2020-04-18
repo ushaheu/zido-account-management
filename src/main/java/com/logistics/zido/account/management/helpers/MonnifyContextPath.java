@@ -4,4 +4,5 @@ public interface MonnifyContextPath {
 
     public static final String AUTHENTICATION_URL = "/api/v1/auth/login";
     public static final String RESERVE_ACCOUNT_URL = "/api/v1/bank-transfer/reserved-accounts";
+    public static final String DEALLOCATE_ACCOUNT_URL = "/api/v1/bank-transfer/reserved-accounts/{accountNumber}";
 }

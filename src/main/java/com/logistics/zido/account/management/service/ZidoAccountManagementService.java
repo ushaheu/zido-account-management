@@ -51,6 +51,9 @@ public class ZidoAccountManagementService {
     @Value("${currency.code}")
     private String currencyCode;
 
+    @Value("${reserve.account.identifier}")
+    private String reserveAccountIdentifier;
+
     private RestTemplate restTemplate;
 
     private ClientDetailRepository clientDetailRepository;
@@ -124,6 +127,9 @@ public class ZidoAccountManagementService {
         }catch (JsonProcessingException ex) {
 
         }
+        String updatedAccountName = reserveAccountRequest.getAccountName().concat(reserveAccountIdentifier);
+        logger.info(updatedAccountName);
+        reserveAccountRequest.setAccountName(updatedAccountName);
         httpHeaders.set("Authorization", "Bearer ".concat(getToken()));
         HttpEntity<ReserveAccountRequest> httpEntity = new HttpEntity<>(reserveAccountRequest, httpHeaders);
         String contextPath = MonnifyContextPath.RESERVE_ACCOUNT_URL;
@@ -467,5 +473,69 @@ public class ZidoAccountManagementService {
             });
         }
         return tripExpenseDetailsHelperResponseList;
+    }
+
+    public ReserveAccountResponse deallocateAccount(String accountNumber) throws TokenNotFoundException, ZidoAccountManagerException {
+        ReserveAccountResponse reserveAccountResponse;
+        HttpHeaders httpHeaders = new HttpHeaders();
+        httpHeaders.setContentType(MediaType.APPLICATION_JSON);
+
+        httpHeaders.set("Authorization", "Bearer ".concat(getToken()));
+        HttpEntity<String> httpEntity = new HttpEntity<>(httpHeaders);
+        String contextPath = MonnifyContextPath.DEALLOCATE_ACCOUNT_URL;
+        logger.info(contextPath);
+        logger.info(monnifyBaseUrl.concat(contextPath));
+        Optional<ReserveAccountResponse> optionalReserveAccountResponse = Optional.ofNullable(restTemplate.exchange(monnifyBaseUrl.concat(contextPath), HttpMethod.DELETE, httpEntity, ReserveAccountResponse.class, accountNumber).getBody());
+        logger.info(optionalReserveAccountResponse.toString());
+        if(optionalReserveAccountResponse.isPresent()) {
+            reserveAccountResponse = optionalReserveAccountResponse.get();
+            if(!reserveAccountResponse.requestSuccessful) {
+                throw new ZidoAccountManagerException(reserveAccountResponse.getResponseMessage());
+            }
+        } else {
+            throw new ZidoAccountManagerException(MessageFormat.format("Cannot Successfully DeAllocate Account with Account Number {0}", accountNumber));
+        }
+        return reserveAccountResponse;
+    }
+
+    public List<TransporterDetailHelper> listTransportersNotMappedToAccount() {
+        List<TransporterDetailHelper> transporterDetailHelperList = new ArrayList<>();
+        List<Transporter> transporterList = transporterRepository.findByTransporterStatusFalseAndAccountStatusFalse();
+        if(!transporterList.isEmpty()) {
+            transporterList.forEach(transporter -> {
+                TransporterDetailHelper transporterDetailHelper = new TransporterDetailHelper().setTransporterAddress(transporter.getTransporterAddress())
+                        .setTransporterEmailAddress(transporter.getTransporterEmailAddress())
+                        .setTransporterName(transporter.getTransporterName())
+                        .setTransporterPhoneNumber(transporter.getTransporterPhoneNumber())
+                        .setId(transporter.getId());
+                transporterDetailHelperList.add(transporterDetailHelper);
+            });
+        }
+        return transporterDetailHelperList;
+    }
+
+    public List<TransporterHelperResponse> listAllTransporters() {
+        List<TransporterHelperResponse> transporterHelperResponseList = new ArrayList<>();
+        List<Transporter> transporterList = transporterRepository.findAll();
+        if(!transporterList.isEmpty()) {
+            transporterList.forEach(transporter -> {
+                TransporterHelperResponse transporterHelperResponse = new TransporterHelperResponse().setTransporterAddress(transporter.getTransporterAddress())
+                        .setTransporterEmailAddress(transporter.getTransporterEmailAddress())
+                        .setTransporterName(transporter.getTransporterName())
+                        .setTransporterPhoneNumber(transporter.getTransporterPhoneNumber())
+                        .setTransporterStatus(transporter.isTransporterStatus())
+                        .setAccountName(transporter.getAccountName())
+                        .setAccountNumber(transporter.getAccountNumber())
+                        .setAccountReference(transporter.getAccountReference())
+                        .setAccountStatus(transporter.isAccountStatus())
+                        .setBankCode(transporter.getBankCode())
+                        .setBankName(transporter.getBankName())
+                        .setCurrencyCode(transporter.getCurrencyCode())
+                        .setReservationReference(transporter.getReservationReference());
+                transporterHelperResponseList.add(transporterHelperResponse);
+
+            });
+        }
+        return transporterHelperResponseList;
     }
 }
